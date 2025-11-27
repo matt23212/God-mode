@@ -7,82 +7,105 @@ from google import genai
 import json
 import time
 
-# --- PAGE CONFIGURATION (TERMINAL STYLE) ---
+# --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="GOD MODE TERMINAL // QUANT",
-    page_icon="♟️",
+    page_title="GOD MODE // SAAS",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- CUSTOM CSS: THE "ROBINHOOD DARK" AESTHETIC ---
+# --- CUSTOM CSS: PREMIUM SAAS THEME ---
 st.markdown("""
 <style>
-    /* Main Background */
+    /* IMPORT INTER FONT */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+    /* APP BACKGROUND */
     .stApp {
-        background-color: #000000;
-        color: #e0e0e0;
-        font-family: 'Roboto Mono', monospace;
-    }
-    
-    /* Metrics Styling - Neon Green for Profit */
-    div[data-testid="stMetricValue"] {
-        font-size: 28px;
-        color: #00ff41; 
-        font-weight: 700;
-        font-family: 'Courier New', monospace;
-    }
-    
-    div[data-testid="stMetricLabel"] {
-        color: #888;
-        font-size: 12px;
-        text-transform: uppercase;
+        background-color: #0E1117;
+        font-family: 'Inter', sans-serif;
     }
 
-    /* Cards/Containers */
-    .css-1r6slb0 {
-        border: 1px solid #333;
-        background-color: #111;
+    /* CARD STYLING */
+    .css-1r6slb0, div[data-testid="stExpander"] {
+        background-color: #1C1F26;
+        border: 1px solid #2C303A;
+        border-radius: 12px;
         padding: 20px;
-        border-radius: 5px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 15px;
+    }
+
+    /* METRICS - SAAS STYLE */
+    div[data-testid="stMetricValue"] {
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        font-size: 28px;
+        color: #FFFFFF;
+    }
+    div[data-testid="stMetricLabel"] {
+        font-family: 'Inter', sans-serif;
+        font-size: 13px;
+        color: #9CA3AF;
+        font-weight: 500;
+    }
+
+    /* HEADERS */
+    h1, h2, h3 {
+        font-family: 'Inter', sans-serif;
+        color: #FFFFFF;
+        font-weight: 700;
+        letter-spacing: -0.5px;
     }
     
-    /* Dataframes - Terminal Look */
+    /* ACCENT COLORS (Robinhood Green) */
+    .highlight-green {
+        color: #00C805;
+        font-weight: 600;
+    }
+    
+    /* DATAFRAMES */
     div[data-testid="stDataFrame"] {
-        border: 1px solid #333;
+        background-color: #1C1F26;
+        border-radius: 8px;
+        border: 1px solid #2C303A;
     }
-    
-    /* Buttons */
+
+    /* BUTTONS */
     .stButton>button {
-        background-color: #111;
-        color: #00ff41;
-        border: 1px solid #00ff41;
-        border-radius: 4px;
-        font-family: 'Courier New', monospace;
-        text-transform: uppercase;
-        font-size: 12px;
+        background-color: #00C805;
+        color: #000000;
+        border: none;
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        transition: all 0.2s ease;
     }
     .stButton>button:hover {
-        background-color: #00ff41;
-        color: #000;
-        border: 1px solid #00ff41;
+        background-color: #00E006;
+        box-shadow: 0 0 10px rgba(0, 200, 5, 0.4);
+        color: #000000;
     }
-    
-    /* Tabs */
+
+    /* TABS */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
+        gap: 20px;
+        background-color: transparent;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        white-space: pre-wrap;
-        background-color: #111;
-        border-radius: 4px;
-        color: #888;
-        font-family: 'Roboto Mono', monospace;
+        height: 45px;
+        background-color: transparent;
+        color: #9CA3AF;
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        border-radius: 8px;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #00ff41;
-        color: #000;
+        background-color: #1C1F26;
+        color: #00C805;
+        border: 1px solid #2C303A;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -98,7 +121,6 @@ GEMINI_API_KEY = "AIzaSyDuSrw5wSKaVk3nnaMhbfuufUuDXpMMDkE"
 class QuantEngine:
     @staticmethod
     def american_to_decimal(american_odds):
-        """Converts -110 to 1.91"""
         if american_odds > 0:
             return (american_odds / 100) + 1
         else:
@@ -106,15 +128,10 @@ class QuantEngine:
 
     @staticmethod
     def implied_prob(decimal_odds):
-        """Converts 2.00 to 0.50 (50%)"""
         return 1 / decimal_odds
 
     @staticmethod
     def kelly_criterion(decimal_odds, win_prob):
-        """
-        Full Kelly Formula: f* = (bp - q) / b
-        Returns optimal bankroll percentage.
-        """
         b = decimal_odds - 1
         p = win_prob
         q = 1 - p
@@ -123,14 +140,12 @@ class QuantEngine:
 
     @staticmethod
     def calculate_ev(decimal_odds, win_prob):
-        """Expected Value %"""
         return (win_prob * (decimal_odds - 1)) - (1 - win_prob)
 
 # --- 3. DATA INGESTION LAYERS ---
 
 @st.cache_data(ttl=900)
 def fetch_market_data(sport_key='americanfootball_nfl'):
-    """Fetches raw odds from Vegas."""
     url = f'https://api.the-odds-api.com/v4/sports/{sport_key}/odds'
     params = {'apiKey': ODDS_API_KEY, 'regions': 'us', 'markets': 'h2h', 'oddsFormat': 'american'}
     try:
@@ -140,7 +155,6 @@ def fetch_market_data(sport_key='americanfootball_nfl'):
 
 @st.cache_data(ttl=3600)
 def fetch_team_stats():
-    """Fetches live NFL records/stats from Tank01."""
     url = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForWeek"
     headers = {"x-rapidapi-key": RAPID_API_KEY, "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"}
     try:
@@ -150,25 +164,20 @@ def fetch_team_stats():
         return {}
 
 def get_ai_prediction(matchup_str, stats_context):
-    """
-    The 'PhD' Analyst. 
-    Uses Gemini 2.0 Flash to calculate a 'True Win Probability' independent of Vegas lines.
-    """
     client = genai.Client(api_key=GEMINI_API_KEY)
     
     prompt = f"""
-    You are a Quantitative Sports Analyst.
+    You are a Quantitative Sports Analyst for a hedge fund.
     Matchup: {matchup_str}
     Context: {str(stats_context)[:1000]}
     
-    TASK: Return a JSON object with your proprietary win probability for the Home Team.
-    Based on DVOA, EPA/Play, and injuries.
+    TASK: Return a strictly formatted JSON object with your win probability for the Home Team.
     
     JSON FORMAT:
     {{
         "home_win_prob": 0.65,
-        "rationale": "Brief, sharp reason",
-        "prop_idea": "Best player prop idea for this game"
+        "rationale": "One brief sentence explaining the edge.",
+        "prop_idea": "Best single player prop."
     }}
     """
     try:
@@ -176,41 +185,57 @@ def get_ai_prediction(matchup_str, stats_context):
         clean_json = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_json)
     except:
-        return {"home_win_prob": 0.50, "rationale": "Model Error", "prop_idea": "N/A"}
+        return {"home_win_prob": 0.50, "rationale": "Model Unavailable", "prop_idea": "N/A"}
 
 # --- 4. THE DASHBOARD ---
 
 def main():
-    st.sidebar.header("⚙️ SETTINGS")
-    bankroll = st.sidebar.number_input("Bankroll ($)", value=1000, step=100)
-    kelly_fraction = st.sidebar.slider("Kelly Fraction", 0.1, 1.0, 0.25, help="Full Kelly is risky. 0.25 is standard.")
+    # Sidebar
+    st.sidebar.title("⚡ SETTINGS")
+    st.sidebar.markdown("---")
+    bankroll = st.sidebar.number_input("Portfolio Value ($)", value=1000, step=100)
+    kelly_fraction = st.sidebar.slider("Kelly Aggression", 0.1, 1.0, 0.25)
+    st.sidebar.info("v3.0.1 // SAAS BUILD")
 
-    st.title("♟️ QUANT TERMINAL // GOD MODE")
-    st.markdown("`STATUS: ONLINE` `LATENCY: 42ms` `MODEL: GEMINI-2.0-FLASH`")
+    # Main Header
+    st.title("God Mode Terminal")
+    st.markdown("##### 🚀 AI-POWERED QUANTITATIVE BETTING ENGINE")
+    st.markdown("---")
     
-    tab1, tab2, tab3 = st.tabs(["📉 LIVE MARKETS", "🧩 PROP ENGINE", "🔗 PARLAY BUILDER"])
+    # Top Stats Row
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Live Markets", "NFL", delta="Active", delta_color="normal")
+    c2.metric("Model Confidence", "Gemini 2.0", delta="High")
+    c3.metric("Bankroll Strategy", "Fractional Kelly")
+    if c4.button("↻ Sync Markets"):
+        st.cache_data.clear()
+
+    st.write("") # Spacer
+
+    tab1, tab2, tab3 = st.tabs(["🔥 Alpha Feed", "📊 Market Data", "🧩 Prop Intelligence"])
 
     # --- LOAD DATA ---
-    with st.spinner("Calibrating Models..."):
+    with st.spinner("Analyzing spreads, DVOA, and injuries..."):
         odds_data = fetch_market_data()
         stats_data = fetch_team_stats()
 
     if not odds_data:
-        st.error("Market Data Offline.")
+        st.error("⚠️ Market Data Unavailable. Check API Quotas.")
         return
 
-    # --- PROCESS DATA INTO DATAFRAME ---
+    # --- PROCESSING ---
     market_rows = []
     
-    for game in odds_data[:8]: # Analyze top 8 games
+    # Limit to 8 games to keep it fast
+    for game in odds_data[:8]: 
         home = game['home_team']
         away = game['away_team']
         
-        # Extract Best Odds
+        # Best Odds Logic
         best_home = -9999
         if game['bookmakers']:
             for bm in game['bookmakers']:
-                if bm['key'] in ['draftkings', 'fanduel']:
+                if bm['key'] in ['draftkings', 'fanduel', 'betmgm']:
                     for mkt in bm['markets']:
                         if mkt['key'] == 'h2h':
                             for outcome in mkt['outcomes']:
@@ -218,10 +243,8 @@ def main():
         
         if best_home == -9999: continue
 
-        # AI Analysis
+        # AI & Quant Logic
         ai_data = get_ai_prediction(f"{away} @ {home}", stats_data)
-        
-        # Quant Math
         dec_odds = QuantEngine.american_to_decimal(best_home)
         true_prob = ai_data['home_win_prob']
         ev = QuantEngine.calculate_ev(dec_odds, true_prob)
@@ -234,85 +257,64 @@ def main():
             "EV": ev,
             "Kelly": kelly_pct,
             "Rationale": ai_data['rationale'],
-            "Prop Idea": ai_data['prop_idea'],
-            "Commence": game['commence_time']
+            "Prop Idea": ai_data['prop_idea']
         })
 
     df = pd.DataFrame(market_rows)
 
-    # --- TAB 1: LIVE MARKETS (The Trading Desk) ---
+    # --- TAB 1: ALPHA FEED (The "Robinhood" View) ---
     with tab1:
-        st.subheader("🔥 HIGH CONVICTION PLAYS (EV+)")
-        
-        # Filter for Positive EV
+        # Filter for +EV
         opportunities = df[df['EV'] > 0].copy()
         
         if not opportunities.empty:
-            cols = st.columns(len(opportunities))
             for idx, row in opportunities.iterrows():
-                bet_size = bankroll * row['Kelly']
+                bet_amt = bankroll * row['Kelly']
+                
+                # HTML Card for "Robinhood" feel
                 st.markdown(f"""
-                <div class="css-1r6slb0">
-                    <h3 style="color:#00ff41">{row['Game']}</h3>
-                    <p>BET: <b>HOME ({row['Odds']})</b></p>
-                    <p>EDGE: <span style="color:#00ff41">+{row['EV']*100:.1f}%</span></p>
-                    <p>STAKE: <b>${bet_size:.0f}</b> ({row['Kelly']*100:.1f}%)</p>
-                    <small>{row['Rationale']}</small>
+                <div style="background-color: #1C1F26; padding: 20px; border-radius: 12px; border: 1px solid #2C303A; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; color: #fff;">{row['Game']}</h3>
+                        <span style="background-color: rgba(0, 200, 5, 0.15); color: #00C805; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 14px;">
+                            +{row['EV']*100:.1f}% EDGE
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 15px; color: #9CA3AF; font-size: 14px;">
+                        <div>TARGET BET</div>
+                        <div>PROBABILITY</div>
+                        <div>KELLY STAKE</div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 600; color: #fff; font-family: monospace;">
+                        <div>Home ({row['Odds']})</div>
+                        <div>{row['True Prob']*100:.1f}%</div>
+                        <div style="color: #00C805;">${bet_amt:.2f}</div>
+                    </div>
+                    <hr style="border-color: #333; margin: 15px 0;">
+                    <p style="color: #E5E7EB; font-size: 14px; margin: 0;"><i>"{row['Rationale']}"</i></p>
                 </div>
                 """, unsafe_allow_html=True)
-                st.write("") 
         else:
-            st.info("Market Efficiency High. No pure alpha detected on Moneylines.")
+            st.info("No pure Alpha detected. Markets are efficient right now.")
 
-        st.divider()
-        st.subheader("📋 FULL MARKET TAPE")
+    # --- TAB 2: MARKET DATA (The "Terminal" View) ---
+    with tab2:
         st.dataframe(
             df[['Game', 'Odds', 'True Prob', 'EV', 'Kelly']],
             use_container_width=True,
             column_config={
-                "True Prob": st.column_config.ProgressColumn("Win Prob", format="%.2f", min_value=0, max_value=1),
-                "EV": st.column_config.NumberColumn("Exp. Value", format="%.2f"),
+                "True Prob": st.column_config.ProgressColumn("Win Probability", format="%.2f", min_value=0, max_value=1),
+                "EV": st.column_config.NumberColumn("Expected Value", format="%.2f"),
                 "Kelly": st.column_config.NumberColumn("Alloc %", format="%.3f")
             }
         )
 
-    # --- TAB 2: PROP ENGINE ---
-    with tab2:
-        st.subheader("🧩 INTELLIGENT PLAYER PROPS")
-        st.caption("AI-Generated Value based on Defensive Matchups")
-        
-        for idx, row in df.iterrows():
-            with st.expander(f"{row['Game']}"):
-                st.markdown(f"**🤖 AI Suggestion:** {row['Prop Idea']}")
-                st.caption(f"Reasoning: {row['Rationale']}")
-
-    # --- TAB 3: PARLAY BUILDER ---
+    # --- TAB 3: PROP INTELLIGENCE ---
     with tab3:
-        st.subheader("🔗 THE DAILY PARLAY")
-        st.caption("Correlated plays optimized for +EV")
-        
-        # Pick top 2 highest probability wins
-        top_picks = df.sort_values(by='True Prob', ascending=False).head(2)
-        
-        if len(top_picks) >= 2:
-            game1 = top_picks.iloc[0]
-            game2 = top_picks.iloc[1]
-            
-            combined_prob = game1['True Prob'] * game2['True Prob']
-            fair_odds = (1 / combined_prob) * 100 - 100
-            
-            st.markdown(f"""
-            <div style="border: 1px solid #00ff41; padding: 20px; border-radius: 10px; text-align: center;">
-                <h2 style="color:#fff">🚀 QUANT DOUBLE</h2>
-                <h3 style="color:#00ff41">{game1['Game'].split('@')[1]} (ML)</h3>
-                <h3 style="color:#00ff41">{game2['Game'].split('@')[1]} (ML)</h3>
-                <hr style="border-color: #333">
-                <p>Fair Probability: {combined_prob*100:.1f}%</p>
-                <p>Target Odds: +{fair_odds:.0f}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.warning("Not enough data to build a safe parlay.")
+        for idx, row in df.iterrows():
+            with st.expander(f"🧩 {row['Game']} - Props"):
+                st.markdown(f"**AI Recommendation:** `{row['Prop Idea']}`")
+                st.caption(f"Based on stats context and defensive matchups.")
 
 if __name__ == "__main__":
     main()
