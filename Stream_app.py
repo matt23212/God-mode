@@ -87,11 +87,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1. SECURE KEYRING ---
-ODDS_API_KEY = st.secrets.get("ODDS_API_KEY", "34e5a58b5b50587ce21dbe0b33e344dc")
-RAPID_API_KEY = st.secrets.get("RAPID_API_KEY", "07d28ccf44mshdfc586c9867d85bp1e1c52jsn1c91d70acc9c")
-NEWS_API_KEY = st.secrets.get("NEWS_API_KEY", "289796ecfb2c4d208506c26d37a4d9ba")
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "AIzaSyDuSrw5wSKaVk3nnaMhbfuufUuDXpMMDkE")
+# --- 1. HARDCODED KEYRING (Your Keys) ---
+ODDS_API_KEY = "34e5a58b5b50587ce21dbe0b33e344dc"
+RAPID_API_KEY = "07d28ccf44mshdfc586c9867d85bp1e1c52jsn1c91d70acc9c"
+NEWS_API_KEY = "289796ecfb2c4d208506c26d37a4d9ba"
+GEMINI_API_KEY = "AIzaSyDuSrw5wSKaVk3nnaMhbfuufUuDXpMMDkE"
 
 # --- 2. QUANT ENGINE (THE MATH) ---
 
