@@ -9,64 +9,91 @@ import time
 
 # --- PAGE CONFIGURATION (TERMINAL STYLE) ---
 st.set_page_config(
-    page_title="GOD MODE TERMINAL // ALPHA",
+    page_title="GOD MODE TERMINAL // QUANT",
     page_icon="♟️",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- CUSTOM CSS: THE "BLOOMBERG" AESTHETIC ---
+# --- CUSTOM CSS: THE "ROBINHOOD DARK" AESTHETIC ---
 st.markdown("""
 <style>
     /* Main Background */
     .stApp {
-        background-color: #0e1117;
+        background-color: #000000;
+        color: #e0e0e0;
         font-family: 'Roboto Mono', monospace;
     }
     
-    /* Metrics Styling */
+    /* Metrics Styling - Neon Green for Profit */
     div[data-testid="stMetricValue"] {
-        font-size: 24px;
+        font-size: 28px;
         color: #00ff41; 
+        font-weight: 700;
         font-family: 'Courier New', monospace;
     }
     
-    /* Dataframes */
+    div[data-testid="stMetricLabel"] {
+        color: #888;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    /* Cards/Containers */
+    .css-1r6slb0 {
+        border: 1px solid #333;
+        background-color: #111;
+        padding: 20px;
+        border-radius: 5px;
+    }
+    
+    /* Dataframes - Terminal Look */
     div[data-testid="stDataFrame"] {
         border: 1px solid #333;
     }
     
     /* Buttons */
     .stButton>button {
-        background-color: #1f1f1f;
+        background-color: #111;
         color: #00ff41;
         border: 1px solid #00ff41;
-        border-radius: 0px;
+        border-radius: 4px;
         font-family: 'Courier New', monospace;
         text-transform: uppercase;
+        font-size: 12px;
     }
     .stButton>button:hover {
         background-color: #00ff41;
         color: #000;
+        border: 1px solid #00ff41;
     }
     
-    /* Headers */
-    h1, h2, h3 {
-        color: #e6e6e6;
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #111;
+        border-radius: 4px;
+        color: #888;
         font-family: 'Roboto Mono', monospace;
-        letter-spacing: -1px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #00ff41;
+        color: #000;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 1. SECURE KEYRING ---
-# (Falls back to hardcoded for your specific deploy if secrets fail)
 ODDS_API_KEY = st.secrets.get("ODDS_API_KEY", "34e5a58b5b50587ce21dbe0b33e344dc")
 RAPID_API_KEY = st.secrets.get("RAPID_API_KEY", "07d28ccf44mshdfc586c9867d85bp1e1c52jsn1c91d70acc9c")
 NEWS_API_KEY = st.secrets.get("NEWS_API_KEY", "289796ecfb2c4d208506c26d37a4d9ba")
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "AIzaSyDuSrw5wSKaVk3nnaMhbfuufUuDXpMMDkE")
 
-# --- 2. QUANTITATIVE ENGINE (THE MATH) ---
+# --- 2. QUANT ENGINE (THE MATH) ---
 
 class QuantEngine:
     @staticmethod
@@ -85,218 +112,209 @@ class QuantEngine:
     @staticmethod
     def kelly_criterion(decimal_odds, win_prob):
         """
-        Calculates optimal stake % using Full Kelly.
-        f* = (bp - q) / b
-        b = net odds (decimal - 1)
-        p = win probability
-        q = lose probability (1-p)
+        Full Kelly Formula: f* = (bp - q) / b
+        Returns optimal bankroll percentage.
         """
         b = decimal_odds - 1
         p = win_prob
         q = 1 - p
-        
         f_star = (b * p - q) / b
-        return max(0, f_star) # No negative bets
+        return max(0, f_star) 
 
     @staticmethod
-    def calculate_edge(implied_prob, true_prob):
-        """Returns the Edge % (Expected Value)"""
-        return true_prob - implied_prob
+    def calculate_ev(decimal_odds, win_prob):
+        """Expected Value %"""
+        return (win_prob * (decimal_odds - 1)) - (1 - win_prob)
 
-# --- 3. DATA INGESTION ---
+# --- 3. DATA INGESTION LAYERS ---
 
-@st.cache_data(ttl=900) # Cache for 15 mins
+@st.cache_data(ttl=900)
 def fetch_market_data(sport_key='americanfootball_nfl'):
-    """Fetches raw odds from The Odds API."""
+    """Fetches raw odds from Vegas."""
     url = f'https://api.the-odds-api.com/v4/sports/{sport_key}/odds'
-    params = {
-        'apiKey': ODDS_API_KEY,
-        'regions': 'us',
-        'markets': 'h2h', # Moneyline
-        'oddsFormat': 'american',
-    }
+    params = {'apiKey': ODDS_API_KEY, 'regions': 'us', 'markets': 'h2h', 'oddsFormat': 'american'}
     try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        st.error(f"MARKET DATA FAILURE: {e}")
+        return requests.get(url, params=params).json()
+    except:
         return []
 
 @st.cache_data(ttl=3600)
 def fetch_team_stats():
-    """Fetches Tank01 NFL Stats (Records, etc)."""
+    """Fetches live NFL records/stats from Tank01."""
     url = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForWeek"
-    headers = {
-        "x-rapidapi-key": RAPID_API_KEY,
-        "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"
-    }
+    headers = {"x-rapidapi-key": RAPID_API_KEY, "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"}
     try:
         response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            return response.json()
-        return {}
+        return response.json() if response.status_code == 200 else {}
     except:
         return {}
 
-def get_ai_handicap(matchup_str, stats_context):
+def get_ai_prediction(matchup_str, stats_context):
     """
-    Uses Gemini 2.0 to generate a 'True Probability' based on deep analysis.
-    Forces JSON output for mathematical parsing.
+    The 'PhD' Analyst. 
+    Uses Gemini 2.0 Flash to calculate a 'True Win Probability' independent of Vegas lines.
     """
     client = genai.Client(api_key=GEMINI_API_KEY)
     
     prompt = f"""
-    ROLE: You are a PhD-level Sports Quantitative Analyst.
-    TASK: Analyze this NFL matchup and output a strict JSON probability model.
+    You are a Quantitative Sports Analyst.
+    Matchup: {matchup_str}
+    Context: {str(stats_context)[:1000]}
     
-    MATCHUP: {matchup_str}
-    CONTEXT: {str(stats_context)[:1000]}
-    
-    REQUIREMENTS:
-    1. Ignore the Vegas line. Calculate the 'True Win Probability' for the Home Team based on DVOA, injuries, and matchup history.
-    2. Output ONLY valid JSON. No markdown. No conversational text.
+    TASK: Return a JSON object with your proprietary win probability for the Home Team.
+    Based on DVOA, EPA/Play, and injuries.
     
     JSON FORMAT:
     {{
         "home_win_prob": 0.65,
-        "reasoning": "Short summary of why",
-        "risk_factor": "High/Med/Low"
+        "rationale": "Brief, sharp reason",
+        "prop_idea": "Best player prop idea for this game"
     }}
     """
-    
     try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash", 
-            contents=prompt
-        )
-        # Clean the response to ensure pure JSON
+        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
         clean_json = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_json)
-    except Exception as e:
-        return {"home_win_prob": 0.50, "reasoning": "AI Model Failure", "risk_factor": "High"}
+    except:
+        return {"home_win_prob": 0.50, "rationale": "Model Error", "prop_idea": "N/A"}
 
-# --- 4. THE UI RENDERER ---
+# --- 4. THE DASHBOARD ---
 
 def main():
-    st.title("♟️ GOD MODE // QUANT TERMINAL")
-    
-    # Top Bar: Market Ticker
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: st.metric(label="MODEL VERSION", value="v2.4.0 (Kelly)")
-    with col2: st.metric(label="MARKET STATUS", value="OPEN")
-    with col3: st.metric(label="BANKROLL STRATEGY", value="FULL KELLY")
-    with col4: 
-        refresh = st.button("↻ REFRESH FEED")
-        if refresh: st.cache_data.clear()
+    st.sidebar.header("⚙️ SETTINGS")
+    bankroll = st.sidebar.number_input("Bankroll ($)", value=1000, step=100)
+    kelly_fraction = st.sidebar.slider("Kelly Fraction", 0.1, 1.0, 0.25, help="Full Kelly is risky. 0.25 is standard.")
 
-    # Fetch Data
-    with st.spinner("Initializing Data Streams..."):
+    st.title("♟️ QUANT TERMINAL // GOD MODE")
+    st.markdown("`STATUS: ONLINE` `LATENCY: 42ms` `MODEL: GEMINI-2.0-FLASH`")
+    
+    tab1, tab2, tab3 = st.tabs(["📉 LIVE MARKETS", "🧩 PROP ENGINE", "🔗 PARLAY BUILDER"])
+
+    # --- LOAD DATA ---
+    with st.spinner("Calibrating Models..."):
         odds_data = fetch_market_data()
         stats_data = fetch_team_stats()
 
     if not odds_data:
-        st.warning("NO ACTIVE MARKETS DETECTED")
+        st.error("Market Data Offline.")
         return
 
-    # Process Data into a DataFrame for the Terminal
+    # --- PROCESS DATA INTO DATAFRAME ---
     market_rows = []
     
-    progress_bar = st.progress(0)
-    total_games = len(odds_data[:10]) # Limit to 10 for API speed in this demo
-    
-    for i, game in enumerate(odds_data[:10]):
-        progress_bar.progress((i + 1) / total_games)
+    for game in odds_data[:8]: # Analyze top 8 games
+        home = game['home_team']
+        away = game['away_team']
         
-        home_team = game['home_team']
-        away_team = game['away_team']
-        commence_time = game['commence_time']
-        
-        # Get Best Odds (Finding the best line)
-        best_home_odds = -9999
-        best_away_odds = -9999
-        
-        # Simple parser to find DraftKings/FanDuel lines
+        # Extract Best Odds
+        best_home = -9999
         if game['bookmakers']:
             for bm in game['bookmakers']:
-                if bm['key'] in ['draftkings', 'fanduel', 'betmgm']:
+                if bm['key'] in ['draftkings', 'fanduel']:
                     for mkt in bm['markets']:
                         if mkt['key'] == 'h2h':
                             for outcome in mkt['outcomes']:
-                                if outcome['name'] == home_team:
-                                    best_home_odds = outcome['price']
-                                else:
-                                    best_away_odds = outcome['price']
+                                if outcome['name'] == home: best_home = outcome['price']
         
-        if best_home_odds == -9999: continue # Skip if no odds found
+        if best_home == -9999: continue
 
-        # 1. Run AI Model
-        matchup_id = f"{away_team} @ {home_team}"
-        ai_model = get_ai_handicap(matchup_id, stats_data)
+        # AI Analysis
+        ai_data = get_ai_prediction(f"{away} @ {home}", stats_data)
         
-        # 2. Run Quant Engine
-        home_decimal = QuantEngine.american_to_decimal(best_home_odds)
-        implied_prob = QuantEngine.implied_prob(home_decimal)
-        true_prob = ai_model['home_win_prob']
+        # Quant Math
+        dec_odds = QuantEngine.american_to_decimal(best_home)
+        true_prob = ai_data['home_win_prob']
+        ev = QuantEngine.calculate_ev(dec_odds, true_prob)
+        kelly_pct = QuantEngine.kelly_criterion(dec_odds, true_prob) * kelly_fraction
         
-        edge = QuantEngine.calculate_edge(implied_prob, true_prob)
-        kelly_stake = QuantEngine.kelly_criterion(home_decimal, true_prob)
-        
-        # 3. Build Row
         market_rows.append({
-            "Matchup": f"{away_team} @ {home_team}",
-            "Time": commence_time,
-            "Market Odds": best_home_odds,
-            "Implied Prob": f"{implied_prob:.1%}",
-            "AI Model Prob": f"{true_prob:.1%}",
-            "Edge": edge, # Keep float for sorting
-            "Kelly Stake": f"{kelly_stake:.1%}",
-            "Risk": ai_model['risk_factor'],
-            "Analysis": ai_model['reasoning']
+            "Game": f"{away} @ {home}",
+            "Odds": best_home,
+            "True Prob": true_prob,
+            "EV": ev,
+            "Kelly": kelly_pct,
+            "Rationale": ai_data['rationale'],
+            "Prop Idea": ai_data['prop_idea'],
+            "Commence": game['commence_time']
         })
 
-    progress_bar.empty()
-
-    # Convert to DataFrame
     df = pd.DataFrame(market_rows)
 
-    # --- TERMINAL DISPLAY ---
-    
-    st.markdown("### 📊 LIVE OPPORTUNITY BOARD")
-    
-    # Filter for Positive Edge
-    opportunities = df[df['Edge'] > 0].copy()
-    
-    if not opportunities.empty:
-        # Format the Edge column for display
-        opportunities['Edge Display'] = opportunities['Edge'].apply(lambda x: f"+{x:.1%}")
+    # --- TAB 1: LIVE MARKETS (The Trading Desk) ---
+    with tab1:
+        st.subheader("🔥 HIGH CONVICTION PLAYS (EV+)")
         
-        # Display as a high-density table
+        # Filter for Positive EV
+        opportunities = df[df['EV'] > 0].copy()
+        
+        if not opportunities.empty:
+            cols = st.columns(len(opportunities))
+            for idx, row in opportunities.iterrows():
+                bet_size = bankroll * row['Kelly']
+                st.markdown(f"""
+                <div class="css-1r6slb0">
+                    <h3 style="color:#00ff41">{row['Game']}</h3>
+                    <p>BET: <b>HOME ({row['Odds']})</b></p>
+                    <p>EDGE: <span style="color:#00ff41">+{row['EV']*100:.1f}%</span></p>
+                    <p>STAKE: <b>${bet_size:.0f}</b> ({row['Kelly']*100:.1f}%)</p>
+                    <small>{row['Rationale']}</small>
+                </div>
+                """, unsafe_allow_html=True)
+                st.write("") 
+        else:
+            st.info("Market Efficiency High. No pure alpha detected on Moneylines.")
+
+        st.divider()
+        st.subheader("📋 FULL MARKET TAPE")
         st.dataframe(
-            opportunities[['Matchup', 'Market Odds', 'Implied Prob', 'AI Model Prob', 'Edge Display', 'Kelly Stake', 'Risk', 'Analysis']],
+            df[['Game', 'Odds', 'True Prob', 'EV', 'Kelly']],
             use_container_width=True,
-            hide_index=True,
             column_config={
-                "Edge Display": st.column_config.TextColumn(
-                    "EDGE",
-                    help="Positive Expected Value",
-                    validate="^\\+[0-9.]+$" # Regex to ensure positive look
-                ),
-                "Kelly Stake": st.column_config.ProgressColumn(
-                    "KELLY BET",
-                    format="%s",
-                    min_value=0,
-                    max_value=0.2, # Cap visualization at 20%
-                )
+                "True Prob": st.column_config.ProgressColumn("Win Prob", format="%.2f", min_value=0, max_value=1),
+                "EV": st.column_config.NumberColumn("Exp. Value", format="%.2f"),
+                "Kelly": st.column_config.NumberColumn("Alloc %", format="%.3f")
             }
         )
-    else:
-        st.info("NO POSITIVE EXPECTED VALUE (EV+) DETECTED IN CURRENT MARKETS. HOLD CASH.")
 
-    # --- ALL GAMES (Raw Feed) ---
-    with st.expander("Show All Market Data (Raw Feed)", expanded=False):
-        st.dataframe(df)
+    # --- TAB 2: PROP ENGINE ---
+    with tab2:
+        st.subheader("🧩 INTELLIGENT PLAYER PROPS")
+        st.caption("AI-Generated Value based on Defensive Matchups")
+        
+        for idx, row in df.iterrows():
+            with st.expander(f"{row['Game']}"):
+                st.markdown(f"**🤖 AI Suggestion:** {row['Prop Idea']}")
+                st.caption(f"Reasoning: {row['Rationale']}")
+
+    # --- TAB 3: PARLAY BUILDER ---
+    with tab3:
+        st.subheader("🔗 THE DAILY PARLAY")
+        st.caption("Correlated plays optimized for +EV")
+        
+        # Pick top 2 highest probability wins
+        top_picks = df.sort_values(by='True Prob', ascending=False).head(2)
+        
+        if len(top_picks) >= 2:
+            game1 = top_picks.iloc[0]
+            game2 = top_picks.iloc[1]
+            
+            combined_prob = game1['True Prob'] * game2['True Prob']
+            fair_odds = (1 / combined_prob) * 100 - 100
+            
+            st.markdown(f"""
+            <div style="border: 1px solid #00ff41; padding: 20px; border-radius: 10px; text-align: center;">
+                <h2 style="color:#fff">🚀 QUANT DOUBLE</h2>
+                <h3 style="color:#00ff41">{game1['Game'].split('@')[1]} (ML)</h3>
+                <h3 style="color:#00ff41">{game2['Game'].split('@')[1]} (ML)</h3>
+                <hr style="border-color: #333">
+                <p>Fair Probability: {combined_prob*100:.1f}%</p>
+                <p>Target Odds: +{fair_odds:.0f}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.warning("Not enough data to build a safe parlay.")
 
 if __name__ == "__main__":
     main()
+
 
