@@ -5,3 +5,8 @@ streamlit
 requests
 google-genai
 scipy
+streamlit
+requests
+google-genai
+scipy
+plotly
