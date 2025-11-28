@@ -12,11 +12,11 @@ from datetime import datetime, timedelta
 from scipy.stats import poisson
 
 # ==============================================================================
-# 1. CORE CONFIGURATION & ASSETS
+# 1. SYSTEM CONFIGURATION & ASSETS
 # ==============================================================================
 
 st.set_page_config(
-    page_title="TITAN OS // GOD MODE",
+    page_title="TITAN OS // QUANT",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
