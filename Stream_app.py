@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
 from google import genai
 import json
 import time
@@ -15,87 +14,68 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CUSTOM CSS: PREMIUM SAAS THEME ---
+# --- CUSTOM CSS: PREMIUM FINTECH THEME ---
 st.markdown("""
 <style>
-    /* IMPORT FONTS */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
-
     /* GLOBAL THEME */
     .stApp {
-        background-color: #0A0C10; /* Deep Midnight */
-        font-family: 'Inter', sans-serif;
+        background-color: #000000;
         color: #E2E8F0;
+        font-family: 'Inter', sans-serif;
     }
-
+    
     /* SIDEBAR */
     section[data-testid="stSidebar"] {
-        background-color: #11141D;
-        border-right: 1px solid #1E293B;
+        background-color: #0E1117;
+        border-right: 1px solid #1F2937;
     }
 
-    /* CARDS & CONTAINERS */
-    .metric-card {
-        background-color: #161B22;
-        border: 1px solid #30363D;
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    /* METRIC CARDS */
+    .metric-container {
+        background-color: #111827;
+        border: 1px solid #374151;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 16px;
+        transition: transform 0.2s;
     }
+    .metric-container:hover {
+        border-color: #00C805;
+    }
+
+    /* TYPOGRAPHY */
+    h1, h2, h3 { font-family: 'Inter', sans-serif; letter-spacing: -0.5px; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
     
-    /* DATAFRAMES */
-    div[data-testid="stDataFrame"] {
-        background-color: #161B22;
-        border: 1px solid #30363D;
-        font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* TEXT STYLES */
-    h1, h2, h3 {
-        color: #F8FAFC;
-        letter-spacing: -0.02em;
-    }
-    .highlight-green {
-        color: #4ADE80; /* Neon Green */
-        font-weight: 700;
-    }
-    .highlight-red {
-        color: #F87171; /* Soft Red */
-        font-weight: 600;
-    }
+    /* ACCENTS */
+    .text-green { color: #00C805; font-weight: 700; }
+    .text-red { color: #FF453A; font-weight: 700; }
+    .text-gray { color: #9CA3AF; font-size: 0.9em; }
     
-    /* BUTTONS */
-    .stButton>button {
-        background-color: #238636; /* GitHub Green */
-        color: white;
-        border: none;
-        font-family: 'Inter', sans-serif;
+    /* BADGES */
+    .badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
         font-weight: 600;
-        border-radius: 6px;
-        transition: all 0.2s;
+        text-transform: uppercase;
     }
-    .stButton>button:hover {
-        background-color: #2EA043;
-        box-shadow: 0 0 8px rgba(46, 160, 67, 0.4);
-    }
+    .badge-green { background: rgba(0, 200, 5, 0.15); color: #00C805; border: 1px solid #00C805; }
+    .badge-gray { background: #374151; color: #D1D5DB; }
 
+    /* LOGOS */
+    .team-logo { width: 40px; height: 40px; object-fit: contain; margin-right: 12px; }
+    
     /* TABS */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: transparent;
-    }
+    .stTabs [data-baseweb="tab-list"] { gap: 24px; }
     .stTabs [data-baseweb="tab"] {
-        height: 40px;
-        background-color: transparent;
-        color: #94A3B8;
-        font-weight: 600;
-        border-radius: 6px;
+        height: 48px;
+        background: transparent;
         border: none;
+        color: #6B7280;
+        font-weight: 600;
     }
-    .stTabs [aria-selected="true"] {
-        background-color: #1E293B;
-        color: #4ADE80;
-    }
+    .stTabs [aria-selected="true"] { color: #00C805 !important; border-bottom: 2px solid #00C805; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -105,55 +85,90 @@ RAPID_API_KEY = "07d28ccf44mshdfc586c9867d85bp1e1c52jsn1c91d70acc9c"
 NEWS_API_KEY = "289796ecfb2c4d208506c26d37a4d9ba"
 GEMINI_API_KEY = "AIzaSyDuSrw5wSKaVk3nnaMhbfuufUuDXpMMDkE"
 
-# --- 2. QUANTITATIVE CORE ---
+# --- 2. ASSETS (Team Logos) ---
+TEAM_LOGOS = {
+    "Arizona Cardinals": "https://loodibee.com/wp-content/uploads/nfl-arizona-cardinals-team-logo-2-700x700.png",
+    "Atlanta Falcons": "https://loodibee.com/wp-content/uploads/nfl-atlanta-falcons-team-logo-2-700x700.png",
+    "Baltimore Ravens": "https://loodibee.com/wp-content/uploads/nfl-baltimore-ravens-team-logo-2-700x700.png",
+    "Buffalo Bills": "https://loodibee.com/wp-content/uploads/nfl-buffalo-bills-team-logo-2-700x700.png",
+    "Carolina Panthers": "https://loodibee.com/wp-content/uploads/nfl-carolina-panthers-team-logo-2-700x700.png",
+    "Chicago Bears": "https://loodibee.com/wp-content/uploads/nfl-chicago-bears-team-logo-2-700x700.png",
+    "Cincinnati Bengals": "https://loodibee.com/wp-content/uploads/nfl-cincinnati-bengals-team-logo-700x700.png",
+    "Cleveland Browns": "https://loodibee.com/wp-content/uploads/nfl-cleveland-browns-team-logo-2-700x700.png",
+    "Dallas Cowboys": "https://loodibee.com/wp-content/uploads/nfl-dallas-cowboys-team-logo-2-700x700.png",
+    "Denver Broncos": "https://loodibee.com/wp-content/uploads/nfl-denver-broncos-team-logo-2-700x700.png",
+    "Detroit Lions": "https://loodibee.com/wp-content/uploads/nfl-detroit-lions-team-logo-2-700x700.png",
+    "Green Bay Packers": "https://loodibee.com/wp-content/uploads/nfl-green-bay-packers-team-logo-2-700x700.png",
+    "Houston Texans": "https://loodibee.com/wp-content/uploads/nfl-houston-texans-team-logo-2-700x700.png",
+    "Indianapolis Colts": "https://loodibee.com/wp-content/uploads/nfl-indianapolis-colts-team-logo-2-700x700.png",
+    "Jacksonville Jaguars": "https://loodibee.com/wp-content/uploads/nfl-jacksonville-jaguars-team-logo-2-700x700.png",
+    "Kansas City Chiefs": "https://loodibee.com/wp-content/uploads/nfl-kansas-city-chiefs-team-logo-2-700x700.png",
+    "Las Vegas Raiders": "https://loodibee.com/wp-content/uploads/nfl-las-vegas-raiders-team-logo-2-700x700.png",
+    "Los Angeles Chargers": "https://loodibee.com/wp-content/uploads/nfl-los-angeles-chargers-team-logo-2-700x700.png",
+    "Los Angeles Rams": "https://loodibee.com/wp-content/uploads/nfl-los-angeles-rams-team-logo-2-700x700.png",
+    "Miami Dolphins": "https://loodibee.com/wp-content/uploads/nfl-miami-dolphins-team-logo-2-700x700.png",
+    "Minnesota Vikings": "https://loodibee.com/wp-content/uploads/nfl-minnesota-vikings-team-logo-2-700x700.png",
+    "New England Patriots": "https://loodibee.com/wp-content/uploads/nfl-new-england-patriots-team-logo-2-700x700.png",
+    "New Orleans Saints": "https://loodibee.com/wp-content/uploads/nfl-new-orleans-saints-team-logo-2-700x700.png",
+    "New York Giants": "https://loodibee.com/wp-content/uploads/nfl-new-york-giants-team-logo-2-700x700.png",
+    "New York Jets": "https://loodibee.com/wp-content/uploads/nfl-new-york-jets-team-logo-700x700.png",
+    "Philadelphia Eagles": "https://loodibee.com/wp-content/uploads/nfl-philadelphia-eagles-team-logo-2-700x700.png",
+    "Pittsburgh Steelers": "https://loodibee.com/wp-content/uploads/nfl-pittsburgh-steelers-team-logo-2-700x700.png",
+    "San Francisco 49ers": "https://loodibee.com/wp-content/uploads/nfl-san-francisco-49ers-team-logo-2-700x700.png",
+    "Seattle Seahawks": "https://loodibee.com/wp-content/uploads/nfl-seattle-seahawks-team-logo-2-700x700.png",
+    "Tampa Bay Buccaneers": "https://loodibee.com/wp-content/uploads/nfl-tampa-bay-buccaneers-team-logo-2-700x700.png",
+    "Tennessee Titans": "https://loodibee.com/wp-content/uploads/nfl-tennessee-titans-team-logo-2-700x700.png",
+    "Washington Commanders": "https://loodibee.com/wp-content/uploads/washington-commanders-logo-700x700.png"
+}
+
+# --- 3. QUANT ENGINE (THE MATH) ---
 
 class QuantEngine:
     @staticmethod
     def american_to_decimal(american_odds):
-        """Converts American odds (-110) to Decimal (1.91)"""
-        if american_odds > 0:
-            return (american_odds / 100) + 1
-        else:
-            return (100 / abs(american_odds)) + 1
+        return (american_odds / 100) + 1 if american_odds > 0 else (100 / abs(american_odds)) + 1
 
     @staticmethod
-    def decimal_to_implied(decimal_odds):
-        """Converts Decimal (2.0) to Probability (0.50)"""
+    def implied_prob(decimal_odds):
         return 1 / decimal_odds
 
     @staticmethod
-    def kelly_criterion(decimal_odds, true_win_prob):
+    def bayesian_blend(market_prob, model_prob, confidence_score):
         """
-        Calculates Optimal Kelly Stake %
-        f* = (bp - q) / b
+        Blends Market Wisdom with AI Model based on Confidence.
+        Confidence 0-10: 10 means trust AI 100%, 0 means trust Market 100%.
         """
-        b = decimal_odds - 1 # Net odds
-        p = true_win_prob
-        q = 1 - p
-        
-        f_star = (b * p - q) / b
-        return max(0, f_star) # No negative bets
+        weight = confidence_score / 10.0
+        return (model_prob * weight) + (market_prob * (1 - weight))
 
     @staticmethod
-    def calculate_ev(decimal_odds, true_win_prob):
-        """Expected Value %: (Prob_Win * Profit) - (Prob_Lose * Stake)"""
-        return (true_win_prob * (decimal_odds - 1)) - (1 - true_win_prob)
+    def kelly_criterion(decimal_odds, win_prob):
+        b = decimal_odds - 1
+        p = win_prob
+        q = 1 - p
+        f_star = (b * p - q) / b
+        return max(0, f_star) 
 
-# --- 3. DATA LAYERS ---
+    @staticmethod
+    def calculate_ev(decimal_odds, win_prob):
+        return (win_prob * (decimal_odds - 1)) - (1 - win_prob)
 
-@st.cache_data(ttl=600) # 10 min cache
-def fetch_odds():
-    """Ingests live lines from Vegas."""
+# --- 4. DATA INGESTION ---
+
+@st.cache_data(ttl=900)
+def fetch_market_data():
+    """Fetches Odds. Handles empty states gracefully."""
     url = f'https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds'
     params = {'apiKey': ODDS_API_KEY, 'regions': 'us', 'markets': 'h2h', 'oddsFormat': 'american'}
     try:
-        return requests.get(url, params=params).json()
+        res = requests.get(url, params=params)
+        return res.json() if res.status_code == 200 else []
     except:
         return []
 
 @st.cache_data(ttl=3600)
-def fetch_stats():
-    """Ingests Team Records & Stats."""
+def fetch_team_stats():
+    """Fetches Stats. Returns empty dict on failure to prevent crash."""
     url = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForWeek"
     headers = {"x-rapidapi-key": RAPID_API_KEY, "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"}
     try:
@@ -162,27 +177,29 @@ def fetch_stats():
     except:
         return {}
 
-def get_ai_analysis(matchup, stats):
+def get_ai_prediction(matchup, stats):
     """
-    The Brain: Gemini 2.0 Flash
-    Generates a probabilistic model for the game based on available data.
+    FAULT TOLERANT AI ANALYST.
+    If stats are missing, it falls back to 'General Knowledge' mode.
     """
     client = genai.Client(api_key=GEMINI_API_KEY)
     
-    prompt = f"""
-    ROLE: Elite Sports Handicapper & Data Scientist.
-    TASK: Analyze this NFL matchup and output a JSON probability model.
-    MATCHUP: {matchup}
-    STATS DUMP: {str(stats)[:800]}
+    stats_context = str(stats)[:1000] if stats else "STATS_UNAVAILABLE_USE_GENERAL_KNOWLEDGE"
     
-    REQUIREMENTS:
-    1. Calculate 'True Win Probability' for the HOME TEAM (0.00 to 1.00).
-    2. Identify the single best Player Prop (e.g. 'Mahomes Over 250.5 yds').
-    3. Keep rationale extremely concise and data-driven.
+    prompt = f"""
+    You are a PhD Sports Quantitative Analyst.
+    MATCHUP: {matchup}
+    STATS: {stats_context}
+    
+    TASK: Output a JSON probability model.
+    1. If stats are missing, use your internal knowledge of NFL team strengths.
+    2. 'home_win_prob': Your estimated win % for Home Team (0.0-1.0).
+    3. 'confidence': 1-10 score of how strong this read is.
     
     OUTPUT JSON ONLY:
     {{
         "home_win_prob": 0.65,
+        "confidence": 8,
         "rationale": "Chiefs passing DVOA ranks #1 vs weak secondary.",
         "prop_bet": "Player Name - Over/Under X Stat"
     }}
@@ -192,52 +209,51 @@ def get_ai_analysis(matchup, stats):
         clean_json = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_json)
     except:
-        return {"home_win_prob": 0.50, "rationale": "Data insufficient", "prop_bet": "N/A"}
+        # Fallback Default if AI fails
+        return {"home_win_prob": 0.50, "confidence": 1, "rationale": "Model Unavailable", "prop_bet": "N/A"}
 
-# --- 4. MAIN APPLICATION ---
+# --- 5. DASHBOARD UI ---
 
 def main():
-    # SIDEBAR CONTROLS
+    # SIDEBAR
     with st.sidebar:
-        st.header("⚡ QUANT CONTROLS")
-        st.markdown("---")
-        bankroll = st.number_input("Total Bankroll ($)", value=5000, step=500)
-        kelly_fraction = st.slider("Kelly Multiplier", 0.1, 1.0, 0.25, help="Standard: 0.25. Aggressive: 0.5.")
-        min_edge = st.slider("Min Edge %", 0.0, 10.0, 1.5, help="Only show bets with this much positive EV.")
+        st.header("⚡ PORTFOLIO")
+        bankroll = st.number_input("Bankroll ($)", value=5000, step=100)
+        kelly_fraction = st.slider("Kelly Fraction", 0.1, 0.5, 0.25)
         
         st.markdown("---")
-        st.caption(f"Status: **ONLINE**")
-        st.caption(f"Model: **Gemini 2.0 Flash**")
-        if st.button("↻ Flush Cache"):
+        st.caption("MODEL SETTINGS")
+        min_ev = st.slider("Min Edge %", 0.0, 10.0, 1.0)
+        
+        if st.button("↻ Refresh Market"):
             st.cache_data.clear()
 
-    # MAIN DASHBOARD
+    # HEADER
     st.title("GOD MODE // TERMINAL")
-    st.markdown("##### 🚀 INSTITUTIONAL GRADE SPORTS ANALYTICS")
+    st.markdown("##### 🚀 INSTITUTIONAL SPORTS ANALYTICS")
     st.markdown("---")
 
     # LOAD DATA
     with st.spinner("Initializing Quant Engine..."):
-        odds_data = fetch_odds()
-        stats_data = fetch_stats()
+        odds_data = fetch_market_data()
+        stats_data = fetch_team_stats()
 
     if not odds_data:
-        st.error("Market Data Offline. Check API Connection.")
+        st.error("Market Offline. No odds available.")
         return
 
     # PROCESSING LOOP
-    market_rows = []
+    opportunities = []
     
-    # Analyze Top 8 Games (For speed)
-    for game in odds_data[:8]:
+    for game in odds_data[:8]: 
         home = game['home_team']
         away = game['away_team']
         
-        # 1. Get Best Market Odds
+        # Get Market Odds
         best_home = -9999
         if game['bookmakers']:
             for bm in game['bookmakers']:
-                if bm['key'] in ['draftkings', 'fanduel']:
+                if bm['key'] in ['draftkings', 'fanduel', 'betmgm']:
                     for mkt in bm['markets']:
                         if mkt['key'] == 'h2h':
                             for outcome in mkt['outcomes']:
@@ -245,106 +261,105 @@ def main():
         
         if best_home == -9999: continue
 
-        # 2. Run AI Model
-        ai_res = get_ai_analysis(f"{away} @ {home}", stats_data)
+        # AI & Quant Math
+        ai_res = get_ai_prediction(f"{away} @ {home}", stats_data)
         
-        # 3. Run Quant Math
         dec_odds = QuantEngine.american_to_decimal(best_home)
-        true_prob = ai_res['home_win_prob']
+        market_prob = QuantEngine.implied_prob(dec_odds)
+        
+        # BLENDED PROBABILITY (Bayesian)
+        true_prob = QuantEngine.bayesian_blend(market_prob, ai_res['home_win_prob'], ai_res['confidence'])
+        
         ev = QuantEngine.calculate_ev(dec_odds, true_prob)
         kelly = QuantEngine.kelly_criterion(dec_odds, true_prob) * kelly_fraction
         
-        market_rows.append({
-            "Matchup": f"{away} @ {home}",
+        opportunities.append({
+            "Game": f"{away} @ {home}",
+            "Home": home,
+            "Away": away,
             "Odds": best_home,
-            "Model Prob": true_prob,
-            "Edge": ev * 100, # Percentage
+            "True Prob": true_prob,
+            "EV": ev * 100,
             "Kelly": kelly,
             "Stake": bankroll * kelly,
             "Rationale": ai_res['rationale'],
-            "Prop": ai_res['prop_bet']
+            "Prop": ai_res['prop_bet'],
+            "Confidence": ai_res['confidence']
         })
 
-    df = pd.DataFrame(market_rows)
+    df = pd.DataFrame(opportunities)
 
-    # TABS FOR DIFFERENT VIEWS
-    tab_alpha, tab_props, tab_parlay = st.tabs(["🔥 ALPHA FEED", "🧩 PROP ENGINE", "🔗 PARLAY LAB"])
+    # TABS
+    tab1, tab2, tab3 = st.tabs(["🔥 ALPHA FEED", "📊 DATA GRID", "🧩 PROP LAB"])
 
-    # --- TAB 1: ALPHA FEED (High Value Bets) ---
-    with tab_alpha:
-        # Filter by Min Edge
-        opportunities = df[df['Edge'] >= min_edge].copy()
+    # --- TAB 1: ALPHA FEED (Visual) ---
+    with tab1:
+        valid_plays = df[df['EV'] >= min_ev].copy()
         
-        if not opportunities.empty:
-            for idx, row in opportunities.iterrows():
-                # Render "Card" View
+        if not valid_plays.empty:
+            for _, row in valid_plays.iterrows():
+                
+                # Dynamic Badge Color
+                conf_color = "#00C805" if row['Confidence'] >= 7 else "#F59E0B";
+                
+                # Logo Logic
+                home_logo = TEAM_LOGOS.get(row['Home'], "https://cdn.freebiesupply.com/images/large/2x/nfl-logo-png-transparent.png")
+                
                 st.markdown(f"""
-                <div class="metric-card" style="margin-bottom: 15px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin:0; color: #E2E8F0;">{row['Matchup']}</h3>
-                        <span style="background: rgba(74, 222, 128, 0.1); color: #4ADE80; padding: 4px 12px; border-radius: 4px; font-weight: 700; font-size: 14px;">
-                            +{row['Edge']:.1f}% EDGE
-                        </span>
+                <div class="metric-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center;">
+                            <img src="{home_logo}" class="team-logo">
+                            <div>
+                                <h3 style="margin: 0; color: #fff;">{row['Home']}</h3>
+                                <span class="text-gray">vs {row['Away']}</span>
+                            </div>
+                        </div>
+                        <div class="badge badge-green">+{row['EV']:.1f}% EDGE</div>
                     </div>
-                    <div style="display: flex; gap: 20px; margin-top: 15px;">
+                    
+                    <div style="display: flex; justify-content: space-between; background: #000; padding: 15px; border-radius: 8px;">
                         <div>
-                            <div style="color: #94A3B8; font-size: 12px;">TARGET BET</div>
-                            <div style="font-family: 'JetBrains Mono'; font-size: 18px; color: #fff;">Home ({row['Odds']})</div>
+                            <div class="text-gray">SIGNAL</div>
+                            <div class="mono" style="font-size: 1.2em; color: #fff;">HOME ({row['Odds']})</div>
                         </div>
                         <div>
-                            <div style="color: #94A3B8; font-size: 12px;">MODEL PROB</div>
-                            <div style="font-family: 'JetBrains Mono'; font-size: 18px; color: #fff;">{row['Model Prob']*100:.1f}%</div>
+                            <div class="text-gray">PROB</div>
+                            <div class="mono" style="font-size: 1.2em; color: {conf_color};">{row['True Prob']*100:.1f}%</div>
                         </div>
-                        <div>
-                            <div style="color: #94A3B8; font-size: 12px;">KELLY STAKE</div>
-                            <div style="font-family: 'JetBrains Mono'; font-size: 18px; color: #4ADE80;">${row['Stake']:.0f}</div>
+                        <div style="text-align: right;">
+                            <div class="text-gray">KELLY BET</div>
+                            <div class="mono text-green" style="font-size: 1.2em;">${row['Stake']:.0f}</div>
                         </div>
                     </div>
-                    <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; color: #CBD5E1; font-size: 14px;">
-                        <i>"{row['Rationale']}"</i>
+                    
+                    <div style="margin-top: 15px; font-size: 0.9em; color: #D1D5DB;">
+                        <span style="color: {conf_color}; font-weight: 700;">AI ANALYST:</span> {row['Rationale']}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info(f"No opportunities found with >{min_edge}% Edge. Adjust filters in sidebar.")
+            st.info("No plays meet your Edge criteria. Market is efficient.")
 
-    # --- TAB 2: PROP ENGINE ---
-    with tab_props:
+    # --- TAB 2: DATA GRID (Terminal) ---
+    with tab2:
         st.dataframe(
-            df[['Matchup', 'Prop', 'Rationale']],
+            df[['Home', 'Odds', 'True Prob', 'EV', 'Kelly', 'Confidence']],
             use_container_width=True,
             column_config={
-                "Matchup": st.column_config.TextColumn("Game", width="medium"),
-                "Prop": st.column_config.TextColumn("AI Recommendation", width="large"),
-                "Rationale": st.column_config.TextColumn("Logic", width="large"),
-            },
-            hide_index=True
+                "True Prob": st.column_config.ProgressColumn("Win Prob", format="%.2f", min_value=0, max_value=1),
+                "EV": st.column_config.NumberColumn("Edge %", format="%.1f"),
+                "Kelly": st.column_config.NumberColumn("Alloc %", format="%.3f"),
+                "Confidence": st.column_config.NumberColumn("Conf (1-10)", format="%d")
+            }
         )
 
-    # --- TAB 3: PARLAY LAB ---
-    with tab_parlay:
-        # Find top 2 highest probability wins
-        top_picks = df.sort_values(by='Model Prob', ascending=False).head(2)
-        
-        if len(top_picks) >= 2:
-            g1 = top_picks.iloc[0]
-            g2 = top_picks.iloc[1]
-            
-            comb_prob = g1['Model Prob'] * g2['Model Prob']
-            fair_odds = int((1/comb_prob - 1) * 100)
-            
-            st.markdown(f"""
-            <div class="metric-card" style="text-align: center;">
-                <h2 style="color: #4ADE80; margin-bottom: 20px;">🚀 QUANT DOUBLE OF THE DAY</h2>
-                <div style="font-size: 20px; font-weight: 700; margin-bottom: 10px;">
-                    {g1['Matchup'].split('@')[1]} (ML)  +  {g2['Matchup'].split('@')[1]} (ML)
-                </div>
-                <div style="color: #94A3B8;">Combined Win Probability: <b style="color: #fff">{comb_prob*100:.1f}%</b></div>
-                <div style="color: #94A3B8;">Target Odds: <b style="color: #fff">+{fair_odds}</b></div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.warning("Insufficient data to generate a safe parlay.")
+    # --- TAB 3: PROP LAB ---
+    with tab3:
+        for _, row in df.iterrows():
+            with st.expander(f"🧩 {row['Home']} Props"):
+                st.markdown(f"**AI Recommendation:** `{row['Prop']}`")
+                st.caption(f"Context: {row['Rationale']}")
 
 if __name__ == "__main__":
     main()
