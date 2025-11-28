@@ -124,6 +124,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- SECURE KEYRING ---
+# FIXED: Flat dictionary structure to prevent KeyError
 KEYS = {
     "ODDS": "34e5a58b5b50587ce21dbe0b33e344dc",
     "RAPID": "07d28ccf44mshdfc586c9867d85bp1e1c52jsn1c91d70acc9c",
@@ -226,8 +227,9 @@ class DataLake:
     @st.cache_data(ttl=900) # Cache odds for 15 mins
     def get_odds():
         url = 'https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds'
+        # FIXED: Access keys directly from flat dictionary
         params = {
-            'apiKey': KEYS['KEYS']['ODDS'] if 'KEYS' in globals() else KEYS['ODDS'], # Handling structure
+            'apiKey': KEYS['ODDS'], 
             'regions': 'us',
             'markets': 'h2h',
             'oddsFormat': 'american'
@@ -466,7 +468,6 @@ def main():
         prob_market = QuantMath.implied_probability(best_price)
         
         # 2. Mathematical (Poisson - Mocked avg scores for reliability if stats missing)
-        # In full production, we parse 'stats' json deeply here.
         prob_math = QuantMath.poisson_win_prob(24.5, 21.0) 
         
         # 3. AI Inference
