@@ -9,108 +9,112 @@ from google.genai import types
 import json
 import time
 from datetime import datetime, timedelta
-from scipy.stats import poisson, norm
+from scipy.stats import poisson
 
 # ==============================================================================
-# 1. SYSTEM CONFIGURATION
+# 1. SYSTEM KERNEL
 # ==============================================================================
 
 st.set_page_config(
-    page_title="TITAN X PRO",
+    page_title="TITAN OS // BENCHMARK",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# --- THEME ENGINE: "VOID TERMINAL" ---
+# --- THEME ENGINE: "VOLT PROTOCOL" ---
 st.markdown("""
 <style>
-    /* CORE VARIABLES */
+    /* --- VARIABLES --- */
     :root {
-        --bg: #000000;
-        --card-bg: #0A0A0A;
-        --border: #1F1F1F;
-        --accent: #DFFF00; /* Cyber Yellow */
-        --success: #00FF41; /* Matrix Green */
-        --danger: #FF2A6D; /* Neon Red */
-        --text: #EDEDED;
-        --font: 'JetBrains Mono', monospace;
+        --bg-app: #09090B;
+        --bg-card: #131316;
+        --bg-card-hover: #1c1c21;
+        --border: #27272A;
+        --accent-volt: #DFFF00;  /* The signature Acid Green */
+        --accent-red: #FF4D4D;
+        --accent-blue: #3B82F6;
+        --text-main: #FFFFFF;
+        --text-muted: #71717A;
     }
 
-    /* GLOBAL OVERRIDES */
-    .stApp { background-color: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
+    /* GLOBAL RESET */
+    .stApp { background-color: var(--bg-app); color: var(--text-main); font-family: 'Inter', sans-serif; }
+    .block-container { padding-top: 1rem; max-width: 100%; }
     
-    /* METRIC CARDS - The "Outlier" Look */
+    /* HIDE STREAMLIT CHROME */
+    header { visibility: hidden; }
+    footer { display: none; }
+    
+    /* --- METRIC CARDS (The Square Ones) --- */
     div[data-testid="stMetric"] {
-        background-color: #111;
-        border-left: 2px solid #333;
-        padding: 10px 15px;
-        border-radius: 0px 8px 8px 0px;
+        background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 15px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     div[data-testid="stMetric"]:hover {
-        border-left: 2px solid var(--accent);
+        border-color: var(--accent-volt);
+        box-shadow: 0 0 15px rgba(223, 255, 0, 0.1);
     }
     div[data-testid="stMetricLabel"] {
-        color: #666;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-    }
-    div[data-testid="stMetricValue"] {
-        font-family: var(--font);
-        font-size: 24px;
-        color: #fff;
-    }
-
-    /* ACTION BUTTONS */
-    .stButton>button {
-        background: #161616;
-        color: var(--accent);
-        border: 1px solid #333;
-        border-radius: 4px;
-        font-family: var(--font);
+        color: var(--text-muted);
+        font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 1px;
-        transition: all 0.2s;
     }
-    .stButton>button:hover {
-        background: var(--accent);
-        color: #000;
-        border-color: var(--accent);
-        box-shadow: 0 0 15px rgba(223, 255, 0, 0.3);
+    div[data-testid="stMetricValue"] {
+        color: #fff;
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        font-size: 24px;
+    }
+    div[data-testid="stMetricDelta"] {
+        font-size: 12px;
+        font-weight: 700;
     }
 
-    /* CUSTOM CONTAINERS */
-    .game-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #222;
-        margin-bottom: 10px;
-    }
-    .bet-ticket {
-        background: rgba(0, 255, 65, 0.05);
-        border: 1px solid rgba(0, 255, 65, 0.2);
-        padding: 15px;
-        border-radius: 8px;
-        text-align: center;
-        margin: 10px 0;
+    /* --- CONTAINERS (The Panels) --- */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 20px;
+        margin-bottom: 15px;
     }
     
-    /* TABS */
-    .stTabs [data-baseweb="tab-list"] { gap: 20px; border-bottom: 1px solid #222; }
-    .stTabs [data-baseweb="tab"] {
-        height: 45px;
-        background: transparent;
-        border: none;
-        color: #666;
-        font-family: var(--font);
-        font-size: 12px;
+    /* --- TABS (Pill Style) --- */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: #000;
+        padding: 4px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
     }
-    .stTabs [aria-selected="true"] { color: var(--accent) !important; border-bottom: 2px solid var(--accent); }
+    .stTabs [data-baseweb="tab"] {
+        height: 32px;
+        background-color: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 8px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: var(--accent-volt);
+        color: #000;
+    }
+
+    /* --- CUSTOM TEXT CLASSES --- */
+    .header-title { font-size: 28px; font-weight: 800; letter-spacing: -1px; color: #fff; }
+    .section-label { font-size: 14px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; }
+    .volt-text { color: var(--accent-volt); font-weight: bold; }
+    
+    /* --- IMAGES --- */
+    img { border-radius: 50%; }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -123,228 +127,211 @@ KEYS = {
 }
 
 # ==============================================================================
-# 2. QUANT ENGINE (The Math Core)
+# 2. QUANT & VISUALIZATION ENGINE
 # ==============================================================================
 
-class QuantEngine:
+class Charts:
     @staticmethod
-    def get_implied_prob(odds):
-        """Converts American Odds to Implied Probability."""
-        if odds > 0: return 100 / (odds + 100)
-        return abs(odds) / (abs(odds) + 100)
+    def donut_profit(profit_data):
+        """Replicates the 'Top 5 Sport Categories' Donut Chart"""
+        labels = list(profit_data.keys())
+        values = list(profit_data.values())
+        colors = ['#DFFF00', '#00E5FF', '#FF4D4D', '#A855F7', '#333333']
+        
+        fig = go.Figure(data=[go.Pie(
+            labels=labels, values=values, hole=.7,
+            marker=dict(colors=colors, line=dict(color='#121212', width=4)),
+            textinfo='none',
+            hoverinfo='label+value'
+        )])
+        
+        fig.add_annotation(text="$3,223", x=0.5, y=0.5, font_size=24, font_color="white", showarrow=False)
+        fig.add_annotation(text="Total Profit", x=0.5, y=0.4, font_size=12, font_color="gray", showarrow=False)
+        
+        fig.update_layout(
+            showlegend=False,
+            margin=dict(l=0, r=0, t=0, b=0),
+            height=200,
+            paper_bgcolor='rgba(0,0,0,0)',
+        )
+        return fig
 
     @staticmethod
-    def get_decimal_odds(odds):
-        """Converts American to Decimal."""
-        if odds > 0: return 1 + (odds / 100)
-        return 1 + (100 / abs(odds))
+    def funds_wave(history):
+        """Replicates the 'Funds Activity' Spline Chart"""
+        x = list(range(len(history)))
+        
+        fig = go.Figure()
+        # Area Glow Effect
+        fig.add_trace(go.Scatter(
+            x=x, y=history, mode='lines',
+            fill='tozeroy',
+            line=dict(color='#DFFF00', width=3, shape='spline'),
+            fillcolor='rgba(223, 255, 0, 0.1)'
+        ))
+        
+        fig.update_layout(
+            template='plotly_dark',
+            margin=dict(l=0, r=0, t=0, b=0),
+            height=150,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            showlegend=False
+        )
+        return fig
 
+class QuantMath:
     @staticmethod
-    def kelly_stake(odds, prob, bankroll, fraction=0.25):
-        """Calculates Dollar Stake using Fractional Kelly."""
-        decimal = QuantEngine.get_decimal_odds(odds)
-        b = decimal - 1
+    def decimal(american):
+        if american > 0: return 1 + (american/100)
+        return 1 + (100/abs(american))
+        
+    @staticmethod
+    def kelly(dec, prob, frac=0.25):
+        b = dec - 1
         q = 1 - prob
         f = (b * prob - q) / b
-        return max(0, f) * fraction * bankroll
-
-    @staticmethod
-    def calculate_edge(odds, true_prob):
-        """Returns ROI % based on Model vs Market."""
-        implied = QuantEngine.get_implied_prob(odds)
-        return (true_prob - implied) * 100
+        return max(0, f) * frac
 
 # ==============================================================================
-# 3. DATA ENGINE (Ingestion)
+# 3. DATA LAYER
 # ==============================================================================
 
-class DataEngine:
+class DataLink:
     @staticmethod
-    @st.cache_data(ttl=600)
-    def fetch_market_data(sport):
-        """Fetch live lines."""
-        sport_keys = {"NFL": "americanfootball_nfl", "NBA": "basketball_nba", "NHL": "icehockey_nhl"}
-        url = f'https://api.the-odds-api.com/v4/sports/{sport_keys[sport]}/odds'
-        try:
-            res = requests.get(url, params={'apiKey': KEYS['ODDS'], 'regions': 'us', 'markets': 'h2h', 'oddsFormat': 'american'})
-            return res.json() if res.status_code == 200 else []
+    @st.cache_data(ttl=900)
+    def get_odds(sport_key):
+        url = f'https://api.the-odds-api.com/v4/sports/{sport_key}/odds'
+        params = {'apiKey': KEYS['ODDS'], 'regions': 'us', 'markets': 'h2h', 'oddsFormat': 'american'}
+        try: return requests.get(url, params=params).json()
         except: return []
 
     @staticmethod
     @st.cache_data(ttl=3600)
-    def fetch_stats(sport):
-        """Fetch team stats."""
-        host = f"tank01-{sport.lower()}-live-in-game-real-time-statistics-{sport.lower()}.p.rapidapi.com"
-        endpoint = "getNFLGamesForWeek" if sport == "NFL" else f"get{sport}GamesForDate"
-        try:
-            res = requests.get(f"https://{host}/{endpoint}", headers={"x-rapidapi-key": KEYS['RAPID'], "x-rapidapi-host": host})
-            return res.json() if res.status_code == 200 else {}
+    def get_stats():
+        # NFL Stats
+        url = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLGamesForWeek"
+        headers = {"x-rapidapi-key": KEYS['RAPID'], "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com"}
+        try: return requests.get(url, headers=headers).json()
         except: return {}
 
 # ==============================================================================
-# 4. INTELLIGENCE ENGINE (AI)
-# ==============================================================================
-
-class AIEngine:
-    def __init__(self):
-        self.client = genai.Client(api_key=KEYS['GEMINI'])
-
-    def handicap_game(self, matchup, stats, sport):
-        """
-        Forces a binary decision with reasoning.
-        """
-        prompt = f"""
-        ROLE: Lead Sports Handicapper.
-        TASK: Handicap {matchup} ({sport}).
-        DATA: {str(stats)[:1500]}
-        
-        OUTPUT JSON:
-        {{
-            "pick_team": "Team Name",
-            "confidence": 85,
-            "reason": "3 bullet points on key mismatch (DVOA, Injury, Rest).",
-            "key_stat": "Rush Yds/Att",
-            "stat_val": "5.2"
-        }}
-        """
-        try:
-            res = self.client.models.generate_content(
-                model="gemini-2.0-flash", 
-                contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json")
-            )
-            return json.loads(res.text)
-        except:
-            return {"pick_team": "Home Team", "confidence": 50, "reason": "Data Unavailable", "key_stat": "N/A", "stat_val": "0"}
-
-# ==============================================================================
-# 5. UI ENGINE (Visuals)
-# ==============================================================================
-
-class UI:
-    @staticmethod
-    def render_logo(team):
-        slug = team.split()[-1].lower()
-        if "football" in slug: slug = "washington"
-        return f"https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/{slug}.png&w=64&h=64"
-
-    @staticmethod
-    def trend_chart(values, line):
-        colors = ['#00FF41' if v > line else '#333' for v in values]
-        fig = go.Figure(go.Bar(x=list(range(1,11)), y=values, marker_color=colors))
-        fig.add_hline(y=line, line_color="white", line_dash="dash")
-        fig.update_layout(
-            template="plotly_dark",
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=0,r=0,t=0,b=0),
-            height=100,
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False)
-        )
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-# ==============================================================================
-# 6. MAIN APPLICATION
+# 4. MAIN DASHBOARD LAYOUT
 # ==============================================================================
 
 def main():
-    # --- SIDEBAR ---
-    with st.sidebar:
-        st.title("TITAN X")
-        st.caption("PRO // v9.2")
-        sport = st.selectbox("MARKET", ["NFL", "NBA", "NHL"])
-        st.divider()
-        bankroll = st.number_input("BANKROLL", value=10000, step=1000)
-        kelly = st.slider("RISK FACTOR", 0.1, 0.5, 0.25)
-        min_edge = st.slider("MIN EDGE", 0.0, 10.0, 1.5)
-        st.divider()
-        if st.button("⚡ SYSTEM REBOOT"): st.cache_data.clear()
-
-    # --- DASHBOARD HEADER ---
-    c1, c2 = st.columns([0.7, 0.3])
+    # --- HEADER ---
+    c1, c2, c3 = st.columns([0.1, 0.7, 0.2])
     with c1:
-        st.title(f"{sport} WAR ROOM")
-        st.markdown("INSTITUTIONAL ANALYTICS • LIVE ODDS • AI CONSENSUS")
+        st.markdown("## ⚡")
     with c2:
-        # P&L Chart
-        chart_data = pd.DataFrame(np.cumsum(np.random.randn(30)) + 100, columns=['PnL'])
-        st.line_chart(chart_data, height=80, color="#DFFF00")
+        st.markdown('<div class="header-text">Dashboard</div>', unsafe_allow_html=True)
+    with c3:
+        st.button("Manage Profile")
 
-    # --- LOAD DATA ---
-    with st.spinner("Fetching Global Liquidity..."):
-        odds = DataEngine.fetch_market_data(sport)
-        stats = DataEngine.fetch_stats(sport)
+    st.write("")
+
+    # --- TOP ROW: KPI CARDS ---
+    k1, k2, k3, k4 = st.columns(4)
+    with k1: st.metric("Total Income", "$3,433.0", "+4.5%")
+    with k2: st.metric("Active Bankroll", "$11,443", "+12%")
+    with k3: st.metric("ROI (All Time)", "24.8%", "+2.1%")
+    with k4: 
+        with st.container(border=True):
+            st.markdown("**Total Wagered**")
+            st.markdown("### $3,433.0")
+
+    st.write("")
+
+    # --- MAIN GRID ---
+    # Left Column (Stats), Middle (Action), Right (Activity)
+    col_left, col_mid, col_right = st.columns([1, 1.5, 1])
+
+    # === LEFT COLUMN ===
+    with col_left:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">Top 5 Categories</div>', unsafe_allow_html=True)
+            # Donut Chart
+            data = {"NFL": 40, "NBA": 25, "NHL": 20, "MLB": 10, "UFC": 5}
+            st.plotly_chart(Charts.donut_profit(data), use_container_width=True)
         
-    if not odds:
-        st.error("MARKET OFFLINE.")
-        st.stop()
+        with st.container(border=True):
+            st.markdown('<div class="section-label">Top 5 Leagues</div>', unsafe_allow_html=True)
+            st.progress(78, text="NFL")
+            st.progress(65, text="NBA")
+            st.progress(42, text="NHL")
 
-    # --- FEED ---
-    tab_feed, tab_props = st.tabs(["🔥 ALPHA FEED", "📊 PROP LAB"])
-
-    with tab_feed:
-        st.write("")
+    # === MIDDLE COLUMN (THE FEED) ===
+    with col_mid:
+        # Tabs for Players/Bets/Plays
+        tab1, tab2, tab3 = st.tabs(["LIVE BETS", "PLAYERS", "ALERTS"])
         
-        for game in odds[:10]:
-            home = game['home_team']
-            away = game['away_team']
+        with tab1:
+            # Fetch Data
+            odds = DataLink.get_odds("americanfootball_nfl")
+            if not odds:
+                st.info("Market Closed.")
+                odds = [] # Fail safe
             
-            # GET ODDS
-            best_odds = -110
-            if game['bookmakers']:
-                # Simple parser for best line
-                best_odds = game['bookmakers'][0]['markets'][0]['outcomes'][0]['price']
-            
-            # ANALYZE
-            brain = AIEngine()
-            ai = brain.handicap_game(f"{away} @ {home}", stats, sport)
-            
-            # MATH
-            prob = ai.get('confidence', 50) / 100.0
-            edge = QuantEngine.calculate_edge(best_odds, prob)
-            stake = QuantEngine.kelly_stake(best_odds, prob, bankroll, kelly)
+            for game in odds[:5]:
+                home = game['home_team']
+                away = game['away_team']
+                
+                # Odds Logic
+                price = -110
+                if game['bookmakers']:
+                     price = game['bookmakers'][0]['markets'][0]['outcomes'][0]['price']
+                
+                dec = QuantMath.decimal(price)
+                # Mock AI Prob for demo speed
+                model_prob = 0.55 
+                stake = QuantMath.kelly(dec, model_prob) * 5000
 
-            if edge >= min_edge:
-                # --- THE TICKET CARD ---
+                # RENDER GAME CARD
                 with st.container(border=True):
-                    # 1. HEADER
-                    c1, c2, c3 = st.columns([0.1, 0.7, 0.2])
-                    with c1: st.image(UI.render_logo(home), width=50)
-                    with c2:
-                        st.subheader(f"{home}")
+                    c1, c2 = st.columns([0.7, 0.3])
+                    with c1:
+                        st.markdown(f"**{home}**")
                         st.caption(f"vs {away}")
-                    with c3:
-                        st.metric("EDGE", f"+{edge:.1f}%")
-
-                    st.divider()
-
-                    # 2. THE ACTION (The "Play")
-                    k1, k2, k3 = st.columns(3)
-                    k1.metric("RECOMMENDED BET", f"{ai['pick_team'].upper()}", f"{best_odds}")
-                    k2.metric("WIN PROB", f"{prob:.0%}", "Model")
-                    k3.metric("KELLY STAKE", f"${stake:.0f}", "Size")
-
-                    # 3. RATIONALE
-                    st.success(f"💡 **THESIS:** {ai['reason']}")
+                    with c2:
+                        st.markdown(f":green-background[{price}]")
                     
-                    # 4. KEY STAT
-                    st.caption(f"🔑 Key Metric: {ai.get('key_stat','N/A')} ({ai.get('stat_val','0')})")
+                    st.divider()
+                    
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("PROB", f"{model_prob:.0%}")
+                    m2.metric("EDGE", "+4.5%")
+                    m3.metric("KELLY", f"${stake:.0f}")
 
-    # --- PROP LAB ---
-    with tab_props:
-        st.markdown("### 🧩 PLAYER PERFORMANCE")
+    # === RIGHT COLUMN ===
+    with col_right:
+        # User Profile Card
+        with st.container(border=True):
+            uc1, uc2 = st.columns([0.3, 0.7])
+            with uc1:
+                st.image("https://ui-avatars.com/api/?name=John+Doe&background=random", width=60)
+            with uc2:
+                st.markdown("**John Williams**")
+                st.caption("Last active: Just now")
         
-        # Mock Prop Data for visual demo
-        c1, c2 = st.columns([2, 1])
-        with c1:
-            st.markdown("#### J. ALLEN (BUF) - PASS YDS")
-            # 10 Game Trend
-            UI.trend_chart(np.random.randint(200, 350, 10), 265.5)
-        with c2:
-            st.metric("LINE", "265.5", "-110")
-            st.metric("L5 HIT RATE", "80%", "+30%")
-            st.button("ADD TO SLIP")
+        # Funds Activity Chart
+        with st.container(border=True):
+            st.markdown('<div class="section-label">Funds Activity</div>', unsafe_allow_html=True)
+            history = np.cumsum(np.random.randn(30)) + 1000
+            st.plotly_chart(Charts.funds_wave(history), use_container_width=True)
+            
+            fa1, fa2 = st.columns(2)
+            fa1.metric("Active", "$1,443")
+            fa2.metric("Playing", "$440")
+
+        # Recent Transactions
+        with st.container(border=True):
+            st.markdown('<div class="section-label">Transactions</div>', unsafe_allow_html=True)
+            st.caption("🟢 Parlay Payout: +$445")
+            st.caption("🔴 Wager: -$110")
+            st.caption("🟢 Deposit: +$1,000")
 
 if __name__ == "__main__":
     main()
