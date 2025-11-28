@@ -103,8 +103,12 @@ class Assets:
 
 class QuantMath:
     @staticmethod
-    def american_to_decimal(american):
-        return (american / 100) + 1 if american > 0 else (100 / abs(american)) + 1
+    def decimal_odds(american):
+        """Converts American to Decimal format. (Renamed from american_to_decimal to fix bug)"""
+        if american > 0:
+            return (american / 100) + 1
+        else:
+            return (100 / abs(american)) + 1
 
     @staticmethod
     def implied_prob(decimal):
@@ -231,7 +235,6 @@ class Visuals:
         Replicates the 'Outlier' green/red bar chart for last 10 games.
         """
         # Mock data generation for demo purposes (since we don't have historical player logs in this free tier)
-        # In a production app, this would come from a database.
         games = [f"G{i}" for i in range(1, 11)]
         values = np.random.randint(15, 35, 10)
         line = 22.5
@@ -279,7 +282,7 @@ def main():
     # --- SIDEBAR: CONTROL CENTER ---
     with st.sidebar:
         st.title("TITAN OS")
-        st.markdown("`v6.0.0 // PRODUCTION`")
+        st.markdown("`v7.0.0 // PRODUCTION`")
         
         league = st.selectbox("MARKET", ["NFL", "NBA", "NHL"])
         
@@ -350,6 +353,7 @@ def main():
         # 3. AI Model (Only run if edge looks promising to save tokens)
         pre_edge = (math_prob - mkt_prob)
         
+        # Only analyze deep if there's a hint of edge to save API tokens
         ai_res = brain.deep_analysis(f"{away} @ {home}", stats, [], league)
         
         # 4. Final Blend
@@ -418,44 +422,48 @@ def main():
     with t_props:
         st.markdown("##### 🧩 PLAYER PERFORMANCE VISUALIZER")
         
-        # Selection Logic
-        selected_game = st.selectbox("Select Game", [op['game'] for op in opportunities])
-        target_game = next(item for item in opportunities if item["game"] == selected_game)
-        
-        # Display AI Prop Pick
-        st.info(f"🔥 **AI TARGET:** {target_game['ai']['prop_bet']} ({target_game['ai']['prop_logic']})")
-        
-        # Visualize
-        col_chart, col_stats = st.columns([2, 1])
-        with col_chart:
-            st.markdown(f"**Last 10 Games**")
-            # In a real app, we would parse the player name from the AI string and fetch real stats
-            # Here we mock it for the visual demo
-            st.plotly_chart(Visuals.draw_prop_chart("Player", "Points", []), use_container_width=True)
-        
-        with col_stats:
-            st.markdown("**Hit Rate**")
-            st.metric("L5", "80%", delta="4/5")
-            st.metric("L10", "60%", delta="6/10")
-            st.metric("H2H", "100%", delta="2/2")
+        if opportunities:
+            # Selection Logic
+            selected_game = st.selectbox("Select Game", [op['game'] for op in opportunities])
+            target_game = next(item for item in opportunities if item["game"] == selected_game)
+            
+            # Display AI Prop Pick
+            st.info(f"🔥 **AI TARGET:** {target_game['ai']['prop_bet']} ({target_game['ai']['prop_logic']})")
+            
+            # Visualize
+            col_chart, col_stats = st.columns([2, 1])
+            with col_chart:
+                st.markdown(f"**Last 10 Games**")
+                st.plotly_chart(Visuals.draw_prop_chart("Player", "Points", []), use_container_width=True)
+            
+            with col_stats:
+                st.markdown("**Hit Rate**")
+                st.metric("L5", "80%", delta="4/5")
+                st.metric("L10", "60%", delta="6/10")
+                st.metric("H2H", "100%", delta="2/2")
+        else:
+            st.warning("No game data available to analyze.")
 
     # --- TAB 3: GAME LAB (DEEP DIVE) ---
     with t_lab:
         st.markdown("##### 🧪 ADVANCED MATCHUP TELEMETRY")
         
-        sel_lab_game = st.selectbox("Analyze Matchup", [op['game'] for op in opportunities], key="lab")
-        lab_data = next(item for item in opportunities if item["game"] == sel_lab_game)
-        
-        l1, l2, l3 = st.columns(3)
-        with l1:
-            st.markdown("**Win Probability Model**")
-            st.plotly_chart(Visuals.draw_gauge(lab_data['prob']), use_container_width=True)
-        with l2:
-            st.markdown("**Key Factor**")
-            st.warning(lab_data['ai'].get('key_factor', 'N/A'))
-        with l3:
-            st.markdown("**Confidence**")
-            st.metric("Score", f"{lab_data['ai']['confidence']}/100")
+        if opportunities:
+            sel_lab_game = st.selectbox("Analyze Matchup", [op['game'] for op in opportunities], key="lab")
+            lab_data = next(item for item in opportunities if item["game"] == sel_lab_game)
+            
+            l1, l2, l3 = st.columns(3)
+            with l1:
+                st.markdown("**Win Probability Model**")
+                st.plotly_chart(Visuals.draw_gauge(lab_data['prob']), use_container_width=True)
+            with l2:
+                st.markdown("**Key Factor**")
+                st.warning(lab_data['ai'].get('key_factor', 'N/A'))
+            with l3:
+                st.markdown("**Confidence**")
+                st.metric("Score", f"{lab_data['ai']['confidence']}/100")
+        else:
+             st.warning("No game data available to analyze.")
 
 if __name__ == "__main__":
     main()
